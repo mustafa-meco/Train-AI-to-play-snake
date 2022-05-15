@@ -3,6 +3,7 @@ import random
 from enum import Enum
 from collections import namedtuple
 import numpy as np
+from helper import distance
 
 pygame.init()
 font = pygame.font.Font('ArialUnicodeMS.ttf', 25)
@@ -30,7 +31,7 @@ BLUE2 = (0,100,255)
 BLACK = (0,0,0)
 
 BLOCK_SIZE = 20
-SPEED = 40
+SPEED = 100
 
 class SnakeGameAI():
 
@@ -104,16 +105,31 @@ class SnakeGameAI():
 
         return reward, game_over, self.score
 
+
+
+    def _how_far_nearest(self, point):
+        if point is None:
+            return None
+        return min([(distance(pnt, point), pnt) for pnt in self.snake[1:]])
+
+
+
     def is_collision(self, pt=None):
         if pt is None:
             pt = self.head
         # hits boundary
         if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
-            return  True
+            return  1
         # hits itself
         if pt in self.snake[1:]:
+            return  1
+        elif self._how_far_nearest(pt)[0] <= 1:
+            return 0.5
+        elif self._how_far_nearest(pt)[0] <= 2:
+            return 0.025
+        elif self._how_far_nearest(pt)[0] <= 3:
+            return 0.00125
 
-            return  True
 
         return False
 

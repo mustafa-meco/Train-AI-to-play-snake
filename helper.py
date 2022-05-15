@@ -17,3 +17,6 @@ def plot(scores, mean_scores):
     plt.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
     plt.show(block=False)
     plt.pause(.1)
+
+def distance(point1, point2):
+    return ((point1.x - point2.x)**2 + (point1.y - point2.y)**2)**0.5

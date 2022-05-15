@@ -3,8 +3,9 @@ import random
 import numpy as np
 from collections import deque
 from snake_game import SnakeGameAI, Direction, Point
-from model import Linear_QNet, QTrainer
+from model import Linear_QNet, QTrainer, Evaluator
 from helper import plot
+
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -18,6 +19,7 @@ class Agent:
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(11, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.evaluator = Evaluator(self.model)
 
 
     def get_state(self, game):
@@ -91,9 +93,9 @@ class Agent:
 
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 800 - self.n_games
+        self.epsilon = 80 - self.n_games
         final_move = [0,0,0]
-        if random.randint(0, 2000) < self.epsilon:
+        if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -104,7 +106,18 @@ class Agent:
 
         return final_move
 
-def train():
+    def evaluate_action(self, state):
+
+        final_move = [0,0,0]
+
+        state0 = torch.tensor(state, dtype=torch.float)
+        prediction = self.model(state0)
+        move = torch.argmax(prediction).item()
+        final_move[move] = 1
+
+        return final_move
+
+def train(file_name='model.pth'):
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
@@ -147,7 +160,75 @@ def train():
             plot_mean_scores.append(mean_score)
             plot(plot_scores, plot_mean_scores)
 
+def eval(file_name='model.pth'):
+    plot_scores = []
+    plot_mean_scores = []
+    total_score = 0
+    record = 76
+    agent = Agent()
+    game = SnakeGameAI()
+    model_folder_path = './model'
+    agent.model.load()
+    while True:
+        # get old state
+        state_old = agent.get_state(game)
+
+        # get move
+        final_move = agent.evaluate_action(state_old)
+
+        # perform move and get new state
+        reward, done, score = game.play_step(final_move)
+        state_new = agent.get_state(game)
+
+        # train short memory
+        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+
+        # remember
+        agent.remember(state_old, final_move, reward, state_new, done)
+
+        if done:
+            # train long memory
+            game.reset()
+            agent.n_games += 1
+            agent.train_long_memory()
+
+            if score > record:
+                record = score
+                agent.model.save(file_name)
+
+            print('Game', agent.n_games, 'Score', score, 'Record:', record)
+
+            plot_scores.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_games
+            plot_mean_scores.append(mean_score)
+            plot(plot_scores, plot_mean_scores)
 
 
 if __name__ == '__main__':
-    train()
+    print("Hello Mustafa Ghoneim Snake Agent")
+    op = input("Do you want to train or to eval? (1. train - 2. evaluate): ")
+
+    c = 0
+    while int(op) != 1 and int(op) != 2:
+        print(int(op))
+
+        if c == 5:
+            exit()
+        op = input("WRONG INPUT!!\nDo you want to train or to eval? (1. train - 2. evaluate): " if c < 3 else "anta zah2tny 3lafekra!!\nDo you want to train or to eval? (1. train - 2. evaluate): " if  c < 4 else "kfaya keda 25er mara!!\nDo you want to train or to eval? (1. train - 2. evaluate): ")
+        c += 1
+    filename = input("Please enter the save/load model filename. enter 0 for default:'model.pth': ")
+    if int(op) == 1:
+        if filename == "" or filename == " " or filename == "0" or filename is None:
+            train()
+        else:
+            train(filename)
+    elif int(op) == 2:
+        if filename == "" or filename == " " or filename == "0" or filename is None:
+            eval()
+        else:
+            eval(filename)
+
+
+
+
